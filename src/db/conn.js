@@ -15,7 +15,7 @@ const poolConfig = process.env.DATABASE_URL
       host: process.env.DB_HOST || 'localhost',
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD || 'tu_password_local',
-      database: process.env.DB_NAME || 'orchidgym',
+      database: process.env.DB_NAME || 'gym',
       port: process.env.DB_PORT || 5432
     };
 

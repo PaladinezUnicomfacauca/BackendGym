@@ -1,9 +1,17 @@
+CREATE TABLE roles (
+    id_role SERIAL PRIMARY KEY,
+    name_role VARCHAR(20) UNIQUE NOT NULL
+);
+
 CREATE TABLE managers (
     id_manager SERIAL PRIMARY KEY,
     name_manager VARCHAR(40) NOT NULL,
     phone VARCHAR(10) UNIQUE NOT NULL,
     email VARCHAR(50) UNIQUE NOT NULL,
-    password VARCHAR(60) NOT NULL
+    password VARCHAR(60) NOT NULL,
+    id_role INTEGER NOT NULL REFERENCES roles(id_role)
+        ON DELETE RESTRICT  
+        ON UPDATE CASCADE
 );
 
 CREATE TABLE plans (

@@ -9,6 +9,7 @@ import membershipsRoutes from "./routes/membershipsRoutes.js";
 import plansRoutes from "./routes/plansRoutes.js";
 import paymentMethodsRoutes from "./routes/paymentMethodsRoutes.js";
 import statesRoutes from "./routes/statesRoutes.js";
+import rolesRoutes from "./routes/rolesRoutes.js";
 import healthCheckRoutes from "./routes/healthCheck.js"; 
 
 dotenv.config();
@@ -45,6 +46,7 @@ apiRouter.use("/memberships", membershipsRoutes);
 apiRouter.use("/plans", plansRoutes);
 apiRouter.use("/payment-methods", paymentMethodsRoutes);
 apiRouter.use("/states", statesRoutes);
+apiRouter.use("/roles", rolesRoutes);
 apiRouter.use("/health-check", healthCheckRoutes);
 
 // Usar el router de la API con el prefijo /api

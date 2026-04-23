@@ -57,12 +57,27 @@ export const createManager = async (req, res) => {
     const errors = [];
 
     for (let i = 0; i < managersArray.length; i++) {
-      const { name_manager, phone, email, password } = managersArray[i];
+      const { name_manager, phone, email, password, id_role } = managersArray[i];
 
       try {
         // Validar campos requeridos
         if (!name_manager || !phone || !email || !password) {
           errors.push({ index: i, error: "name_manager, phone, email and password are required" });
+          continue;
+        }
+
+        const idRoleNum = parseInt(id_role, 10);
+        if (id_role === undefined || id_role === null || Number.isNaN(idRoleNum)) {
+          errors.push({ index: i, error: "id_role is required and must be a valid number" });
+          continue;
+        }
+
+        const roleCheck = await pool.query(
+          "SELECT id_role FROM roles WHERE id_role = $1",
+          [idRoleNum]
+        );
+        if (roleCheck.rows.length === 0) {
+          errors.push({ index: i, error: "Role not found" });
           continue;
         }
 
@@ -104,8 +119,8 @@ export const createManager = async (req, res) => {
         // Hashear la contraseña antes de guardar
         const hashedPassword = await bcrypt.hash(password, 10);
         const { rows } = await pool.query(
-          "INSERT INTO managers (name_manager, phone, email, password) VALUES ($1, $2, $3, $4) RETURNING *",
-          [name_manager, phone, email, hashedPassword]
+          "INSERT INTO managers (name_manager, phone, email, password, id_role) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+          [name_manager, phone, email, hashedPassword, idRoleNum]
         );
 
         results.push(rows[0]);
@@ -143,7 +158,7 @@ export const createManager = async (req, res) => {
 export const updateManager = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
-    const { name_manager, phone, email, password, currentPassword } = req.body;
+    const { name_manager, phone, email, password, currentPassword, id_role } = req.body;
 
     // Verificar que el manager existe y obtener la contraseña actual
     const managerCheck = await pool.query(
@@ -202,6 +217,20 @@ export const updateManager = async (req, res) => {
       }
     }
 
+    if (id_role !== undefined) {
+      const idRoleNum = parseInt(id_role, 10);
+      if (Number.isNaN(idRoleNum)) {
+        return res.status(400).json({ error: "id_role must be a valid number" });
+      }
+      const roleCheck = await pool.query(
+        "SELECT id_role FROM roles WHERE id_role = $1",
+        [idRoleNum]
+      );
+      if (roleCheck.rows.length === 0) {
+        return res.status(404).json({ error: "Role not found" });
+      }
+    }
+
     // Construir la consulta dinámicamente basada en los campos proporcionados
     let updateFields = [];
     let values = [];
@@ -231,6 +260,16 @@ export const updateManager = async (req, res) => {
       updateFields.push(`password = $${paramCount}`);
       values.push(hashedPassword);
       paramCount++;
+    }
+
+    if (id_role !== undefined) {
+      updateFields.push(`id_role = $${paramCount}`);
+      values.push(parseInt(id_role, 10));
+      paramCount++;
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({ error: "No fields to update" });
     }
 
     values.push(id);
