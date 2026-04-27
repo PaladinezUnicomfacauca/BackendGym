@@ -7,25 +7,26 @@ const calculateStateAndArrears = async (expirationDate) => {
   
   const daysUntilExpiration = Math.ceil((expiration - today) / (1000 * 60 * 60 * 24));
   
-  let stateName;
+  let stateNames;
   let daysArrears = 0;
   
   if (daysUntilExpiration > 5) {
-    stateName = "Vigente";
+    // Compatibilidad: algunas BD usan "Activo" en lugar de "Vigente".
+    stateNames = ["Vigente", "Activo"];
   } else if (daysUntilExpiration >= 0) {
-    stateName = "Por vencer";
+    stateNames = ["Por vencer"];
   } else {
-    stateName = "Vencido";
+    stateNames = ["Vencido"];
     daysArrears = Math.abs(daysUntilExpiration);
   }
   
   const stateResult = await pool.query(
-    "SELECT id_state FROM states WHERE name_state = $1",
-    [stateName]
+    "SELECT id_state FROM states WHERE name_state = ANY($1) ORDER BY id_state ASC LIMIT 1",
+    [stateNames]
   );
   
   if (stateResult.rows.length === 0) {
-    throw new Error(`State '${stateName}' not found in database`);
+    throw new Error(`State '${stateNames.join("' or '")}' not found in database`);
   }
   
   return {

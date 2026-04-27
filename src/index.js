@@ -32,6 +32,18 @@ export function authenticateManager(req, res, next) {
   }
 }
 
+// Middleware de autorización por rol: solo Superusuario.
+export function authorizeSuperuser(req, res, next) {
+  const roleName = String(req.manager?.name_role || "").trim().toLowerCase();
+  const roleId = Number(req.manager?.id_role);
+
+  if (roleName === "superusuario" || roleId === 1) {
+    return next();
+  }
+
+  return res.status(403).json({ error: "Access denied: superuser role required" });
+}
+
 // Middleware
 app.use(cors());
 app.use(express.json());

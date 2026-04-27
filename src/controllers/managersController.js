@@ -11,6 +11,18 @@ export const getManagers = async (req, res) => {
   }
 };
 
+// Endpoint público para el login: solo expone datos mínimos.
+export const getManagersForLogin = async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT id_manager, name_manager FROM managers ORDER BY name_manager ASC"
+    );
+    return res.status(200).json(rows);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+
 export const getManagerById = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
@@ -331,7 +343,16 @@ export const loginManager = async (req, res) => {
     }
     // Buscar manager por name_manager
     const { rows } = await pool.query(
-      "SELECT id_manager, name_manager, email, password FROM managers WHERE name_manager = $1",
+      `SELECT
+        m.id_manager,
+        m.name_manager,
+        m.email,
+        m.password,
+        m.id_role,
+        r.name_role
+      FROM managers m
+      INNER JOIN roles r ON r.id_role = m.id_role
+      WHERE m.name_manager = $1`,
       [name_manager]
     );
     if (rows.length === 0) {
@@ -345,7 +366,12 @@ export const loginManager = async (req, res) => {
     }
     // Generar JWT
     const token = jwt.sign(
-      { id_manager: manager.id_manager, name_manager: manager.name_manager },
+      {
+        id_manager: manager.id_manager,
+        name_manager: manager.name_manager,
+        id_role: manager.id_role,
+        name_role: manager.name_role
+      },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
@@ -355,7 +381,9 @@ export const loginManager = async (req, res) => {
       manager: {
         id_manager: manager.id_manager,
         name_manager: manager.name_manager,
-        email: manager.email
+        email: manager.email,
+        id_role: manager.id_role,
+        name_role: manager.name_role
       }
     });
   } catch (error) {

@@ -9,29 +9,29 @@ const calculateStateAndArrears = async (expirationDate) => {
   // Calcular días hasta la expiración (puede ser negativo si ya expiró)
   const daysUntilExpiration = Math.ceil((expiration - today) / (1000 * 60 * 60 * 24));
   
-  let stateName;
+  let stateNames;
   let daysArrears = 0;
   
   if (daysUntilExpiration > 5) {
-    // Más de 5 días hasta la expiración = Vigente
-    stateName = "Vigente";
+    // Compatibilidad: algunas BD usan "Activo" en lugar de "Vigente".
+    stateNames = ["Vigente", "Activo"];
   } else if (daysUntilExpiration >= 0) {
     // Entre 0 y 5 días hasta la expiración = Por vencer
-    stateName = "Por vencer";
+    stateNames = ["Por vencer"];
   } else {
     // Ya expiró = Vencido
-    stateName = "Vencido";
+    stateNames = ["Vencido"];
     daysArrears = Math.abs(daysUntilExpiration);
   }
   
-  // Obtener el ID del estado
+  // Obtener el ID del estado (aceptando nombres equivalentes)
   const stateResult = await pool.query(
-    "SELECT id_state FROM states WHERE name_state = $1",
-    [stateName]
+    "SELECT id_state FROM states WHERE name_state = ANY($1) ORDER BY id_state ASC LIMIT 1",
+    [stateNames]
   );
   
   if (stateResult.rows.length === 0) {
-    throw new Error(`State '${stateName}' not found in database`);
+    throw new Error(`State '${stateNames.join("' or '")}' not found in database`);
   }
   
   return {
@@ -457,7 +457,7 @@ export const getActiveMemberships = async (req, res) => {
       JOIN plans p ON m.id_plan = p.id_plan
       JOIN payment_methods pm ON m.id_method = pm.id_method
       JOIN states s ON m.id_state = s.id_state
-      WHERE s.name_state IN ('Vigente', 'Por vencer')
+      WHERE s.name_state IN ('Vigente', 'Activo', 'Por vencer')
       ORDER BY m.id_membership DESC
     `);
     return res.status(200).json(rows);
