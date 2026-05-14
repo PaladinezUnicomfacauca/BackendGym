@@ -1,7 +1,5 @@
 import { pool } from "../db/conn.js";
-
-const userNameHasDigits = (name) => /\d/.test(String(name).trim());
-const isPhone10Digits = (phone) => /^\d{10}$/.test(String(phone));
+import { isPhone10Digits, isValidPersonDisplayName } from "../utils/personNamePhone.js";
 
 // Función helper para obtener la membresía activa de un usuario
 const getActiveMembership = async (userId) => {
@@ -99,8 +97,12 @@ export const createUser = async (req, res) => {
           continue;
         }
 
-        if (userNameHasDigits(trimmedName)) {
-          errors.push({ index: i, error: "El nombre no debe incluir números" });
+        if (!isValidPersonDisplayName(trimmedName)) {
+          errors.push({
+            index: i,
+            error:
+              "El nombre solo puede contener letras y espacios (sin números ni caracteres especiales)",
+          });
           continue;
         }
 
@@ -184,8 +186,11 @@ export const updateUser = async (req, res) => {
       if (!trimmedName) {
         return res.status(400).json({ error: "name_user cannot be empty" });
       }
-      if (userNameHasDigits(trimmedName)) {
-        return res.status(400).json({ error: "El nombre no debe incluir números" });
+      if (!isValidPersonDisplayName(trimmedName)) {
+        return res.status(400).json({
+          error:
+            "El nombre solo puede contener letras y espacios (sin números ni caracteres especiales)",
+        });
       }
     }
 
@@ -302,8 +307,11 @@ export const createUserWithMembership = async (req, res) => {
     if (!trimmedName) {
       return res.status(400).json({ error: "El nombre es requerido" });
     }
-    if (userNameHasDigits(trimmedName)) {
-      return res.status(400).json({ error: "El nombre no debe incluir números" });
+    if (!isValidPersonDisplayName(trimmedName)) {
+      return res.status(400).json({
+        error:
+          "El nombre solo puede contener letras y espacios (sin números ni caracteres especiales)",
+      });
     }
     if (!isPhone10Digits(phone)) {
       return res.status(400).json({ error: "El teléfono debe tener exactamente 10 dígitos" });
@@ -621,8 +629,11 @@ export const updateUserWithMembership = async (req, res) => {
     if (!trimmedName) {
       return res.status(400).json({ error: "El nombre es requerido" });
     }
-    if (userNameHasDigits(trimmedName)) {
-      return res.status(400).json({ error: "El nombre no debe incluir números" });
+    if (!isValidPersonDisplayName(trimmedName)) {
+      return res.status(400).json({
+        error:
+          "El nombre solo puede contener letras y espacios (sin números ni caracteres especiales)",
+      });
     }
     if (!isPhone10Digits(phone)) {
       return res.status(400).json({ error: "El teléfono debe tener exactamente 10 dígitos" });

@@ -1,10 +1,17 @@
 import { pool } from "../db/conn.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
+import { isPhone10Digits, isValidPersonDisplayName } from "../utils/personNamePhone.js";
 
 export const getManagers = async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT * FROM managers ORDER BY id_manager ASC");
+    const { rows } = await pool.query(
+      `SELECT m.id_manager, m.name_manager, m.phone, m.email, m.id_role,
+              r.name_role AS name_role
+       FROM managers m
+       INNER JOIN roles r ON r.id_role = m.id_role
+       ORDER BY m.id_manager ASC`
+    );
     return res.status(200).json(rows);
   } catch (error) {
     return res.status(500).json({ error: error.message });
@@ -93,9 +100,21 @@ export const createManager = async (req, res) => {
           continue;
         }
 
-        // Validar que el teléfono tenga exactamente 10 dígitos
-        if (!/^\d{10}$/.test(phone)) {
-          errors.push({ index: i, error: "Phone number must have exactly 10 digits." });
+        const trimmedManagerName = String(name_manager).trim();
+        if (!isValidPersonDisplayName(trimmedManagerName)) {
+          errors.push({
+            index: i,
+            error:
+              "El nombre solo puede contener letras y espacios (sin números ni caracteres especiales)",
+          });
+          continue;
+        }
+
+        if (!isPhone10Digits(phone)) {
+          errors.push({
+            index: i,
+            error: "El teléfono debe tener exactamente 10 dígitos (solo números, sin letras ni símbolos)",
+          });
           continue;
         }
 
@@ -132,7 +151,7 @@ export const createManager = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
         const { rows } = await pool.query(
           "INSERT INTO managers (name_manager, phone, email, password, id_role) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-          [name_manager, phone, email, hashedPassword, idRoleNum]
+          [trimmedManagerName, phone, email, hashedPassword, idRoleNum]
         );
 
         results.push(rows[0]);
@@ -170,6 +189,9 @@ export const createManager = async (req, res) => {
 export const updateManager = async (req, res) => {
   try {
     const id = parseInt(req.params.id);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ error: "Invalid manager ID" });
+    }
     const { name_manager, phone, email, password, currentPassword, id_role } = req.body;
 
     // Verificar que el manager existe y obtener la contraseña actual
@@ -194,10 +216,25 @@ export const updateManager = async (req, res) => {
       }
     }
 
+    if (name_manager !== undefined) {
+      const trimmed = String(name_manager).trim();
+      if (!trimmed) {
+        return res.status(400).json({ error: "El nombre no puede estar vacío" });
+      }
+      if (!isValidPersonDisplayName(trimmed)) {
+        return res.status(400).json({
+          error:
+            "El nombre solo puede contener letras y espacios (sin números ni caracteres especiales)",
+        });
+      }
+    }
+
     // Si se está actualizando el teléfono, validar que tenga exactamente 10 dígitos
     if (phone !== undefined) {
-      if (!/^\d{10}$/.test(phone)) {
-        return res.status(400).json({ error: "Phone number must have exactly 10 digits." });
+      if (!isPhone10Digits(phone)) {
+        return res.status(400).json({
+          error: "El teléfono debe tener exactamente 10 dígitos (solo números, sin letras ni símbolos)",
+        });
       }
       // Verificar que no esté duplicado
       const phoneCheck = await pool.query(
@@ -250,7 +287,7 @@ export const updateManager = async (req, res) => {
 
     if (name_manager !== undefined) {
       updateFields.push(`name_manager = $${paramCount}`);
-      values.push(name_manager);
+      values.push(String(name_manager).trim());
       paramCount++;
     }
 
@@ -297,19 +334,48 @@ export const updateManager = async (req, res) => {
   }
 };
 
+/** Nombre del rol en BD (debe coincidir con `roles.name_role`). */
+const SUPERUSUARIO_ROLE_NAME = "Superusuario";
+
 export const deleteManager = async (req, res) => {
   try {
-    const id = parseInt(req.params.id);
+    const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ error: "Invalid manager ID" });
+    }
 
-    // Obtener el nombre del manager antes de eliminarlo
+    // Nombre del manager y rol (para reglas de negocio del Superusuario)
     const managerResult = await pool.query(
-      "SELECT name_manager FROM managers WHERE id_manager = $1",
+      `SELECT m.name_manager, r.name_role
+       FROM managers m
+       INNER JOIN roles r ON r.id_role = m.id_role
+       WHERE m.id_manager = $1`,
       [id]
     );
     if (managerResult.rows.length === 0) {
       return res.status(404).json({ message: "Manager not found" });
     }
-    const managerName = managerResult.rows[0].name_manager;
+    const { name_manager: managerName, name_role: roleName } = managerResult.rows[0];
+
+    const isSuperusuario =
+      String(roleName || "").trim().toLowerCase() === SUPERUSUARIO_ROLE_NAME.toLowerCase();
+
+    if (isSuperusuario) {
+      const { rows: countRows } = await pool.query(
+        `SELECT COUNT(*)::int AS total
+         FROM managers m
+         INNER JOIN roles r ON r.id_role = m.id_role
+         WHERE LOWER(TRIM(r.name_role)) = LOWER(TRIM($1))`,
+        [SUPERUSUARIO_ROLE_NAME]
+      );
+      const superCount = countRows[0]?.total ?? 0;
+      if (superCount <= 1) {
+        return res.status(400).json({
+          error:
+            "Debe haber al menos un Superusuario.",
+        });
+      }
+    }
 
     // Actualizar las membresías asociadas: guardar el nombre y poner id_manager en NULL
     await pool.query(
