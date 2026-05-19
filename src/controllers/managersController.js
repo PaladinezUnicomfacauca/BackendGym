@@ -405,7 +405,7 @@ export const loginManager = async (req, res) => {
   try {
     const { name_manager, password } = req.body;
     if (!name_manager || !password) {
-      return res.status(400).json({ error: "Name and password are required" });
+      return res.status(400).json({ error: "Nombre y contraseña requeridos" });
     }
     // Buscar manager por name_manager
     const { rows } = await pool.query(
@@ -422,13 +422,13 @@ export const loginManager = async (req, res) => {
       [name_manager]
     );
     if (rows.length === 0) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Credenciales inválidas" });
     }
     const manager = rows[0];
     // Comparar contraseña
     const passwordMatch = await bcrypt.compare(password, manager.password);
     if (!passwordMatch) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Credenciales inválidas" });
     }
     // Generar JWT
     const token = jwt.sign(
