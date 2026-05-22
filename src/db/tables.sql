@@ -1,3 +1,8 @@
+CREATE TABLE identification_types (
+    id_identification_type SERIAL PRIMARY KEY,
+    name_identification_type VARCHAR(30) UNIQUE NOT NULL
+);
+
 CREATE TABLE roles (
     id_role SERIAL PRIMARY KEY,
     name_role VARCHAR(20) UNIQUE NOT NULL
@@ -35,7 +40,11 @@ CREATE TABLE users (
     id_user SERIAL PRIMARY KEY,
     name_user VARCHAR(40) NOT NULL,
     phone VARCHAR(10) UNIQUE NOT NULL,
-    created_at DATE DEFAULT CURRENT_DATE
+    created_at DATE DEFAULT CURRENT_DATE,
+    identification_number VARCHAR(15) UNIQUE NOT NULL,
+    identification_type INTEGER NOT NULL REFERENCES identification_types(id_identification_type)
+        ON DELETE RESTRICT  
+        ON UPDATE CASCADE
 );
 
 CREATE TABLE memberships (
